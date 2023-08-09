@@ -1,5 +1,7 @@
 package socks5
 
+import "time"
+
 const (
 	Socks5                byte       = 0x05
 	UserPasswdAuthVer     byte       = 0x01
@@ -54,4 +56,5 @@ type CommandType = byte
 type Config struct {
 	Method        MethodType
 	CheckAuthFunc func(userName string, passwd string) bool
+	Timeout       time.Duration
 }

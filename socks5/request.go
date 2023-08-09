@@ -2,6 +2,7 @@ package socks5
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -98,29 +99,65 @@ func NewRequestReplySuccessMessage(conn io.Writer) error {
 
 }
 
-func request(conn io.ReadWriter, reader *bufio.Reader) (net.Conn, error) {
+// request
+func (s *Socks5Server) request(conn io.ReadWriter, reader *bufio.Reader) error {
+	// 获取请求信息
 	message, err := NewRequestMessage(reader)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	command := message.Command
-	if command != CommandConnect {
-		err := NewRequestReplyFailMessage(conn, ReplyNotSupportedCmd)
-		return nil, err
+	//addressType := message.AddressType
+	messageAddress := message.Address
+	if command == CommandConnect {
+		return s.handleTcp(conn, messageAddress)
+	} else if command == CommandUdpAssociate {
+		return handleUdp()
+	} else {
+		// ReplyNotSupportedCmd
+		NewRequestReplyFailMessage(conn, ReplyNotSupportedCmd)
+		return nil
 	}
-	////addressType := message.AddressType
-	address := message.Address
-	//
-	//NewAuthReplyMessage()
-	targetConn, err := net.Dial("tcp", address)
-	if err != nil {
-		err := NewRequestReplyFailMessage(conn, ReplyCommonFail)
-		return nil, err
-	}
-	log.Println("dial ", address)
-	addrValue := targetConn.LocalAddr()
-	log.Println(addrValue)
-	NewRequestReplySuccessMessage(conn)
-	return targetConn, err
 
+}
+
+// handleTcp
+func (s *Socks5Server) handleTcp(conn io.ReadWriter, address string) error {
+	targetConn, err := net.DialTimeout("tcp", address, s.Config.Timeout)
+	if err != nil {
+		NewRequestReplyFailMessage(conn, ReplyCommonFail)
+		return err
+	}
+	//NewAuthReplyMessage()
+	NewRequestReplySuccessMessage(conn)
+	return forward(conn, targetConn)
+}
+
+// handleUdp
+func handleUdp() error {
+	log.Printf("TODO implements handleUdp  \n")
+	return nil
+}
+
+// 转发
+func forward(conn io.ReadWriter, dest io.ReadWriteCloser) error {
+	defer dest.Close()
+	//go io.Copy(dest, conn)
+	//_, err := io.Copy(conn, dest)
+	//return err
+	// 2. 通过启动两个单向数据转发子协程实现双向转发转发
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		// 等价： 0ioconn.WriteTo(dest).
+		_, _ = io.Copy(dest, conn)
+		cancel()
+	}()
+	go func() {
+		// dest 内容复制到客户端连接conn
+		_, _ = io.Copy(conn, dest)
+		cancel()
+	}()
+	<-ctx.Done()
+	return nil
 }
