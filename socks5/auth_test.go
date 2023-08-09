@@ -35,6 +35,8 @@ func TestNewAuthMessage(t *testing.T) {
 		}
 		wantMessage := AuthMessage{Socks5, MethodUserPasswd, []MethodType{MethodNoAuth, MethodUserPasswd}}
 		if !reflect.DeepEqual(*message, wantMessage) {
+			// 不等是预期的
+		} else {
 			log.Fatalf("want get %v but got   %v", wantMessage, message)
 		}
 
