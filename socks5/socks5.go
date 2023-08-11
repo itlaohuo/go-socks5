@@ -17,9 +17,13 @@ type Socks5Server struct {
 	Config  Config
 }
 
+func (s *Socks5Server) String() string {
+	return fmt.Sprintf("%s:%d;%+v ", s.Address, s.Port, s.Config)
+}
+
 func (s *Socks5Server) Run() error {
 	address := fmt.Sprintf("%s:%d", s.Address, s.Port)
-	fmt.Printf("Socks5Server start ,address : %s \n", address)
+	fmt.Printf("Socks5Server start , : %s \n", s)
 	listen, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalln("start server error", err)
