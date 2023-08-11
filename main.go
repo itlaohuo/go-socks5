@@ -22,7 +22,8 @@ func main() {
 	}
 
 	server := &socks5.Socks5Server{
-		Address: "127.0.0.1",
+		// 保证能被公网访问
+		Address: "",
 		Port:    int16(port),
 		Config: socks5.Config{
 			Timeout: 10 * time.Second,
