@@ -32,4 +32,4 @@ COPY --from=builder /app/socks5Server ./
 EXPOSE 8080
 
 #ENTRYPOINT ["./entrypoint.sh"]
-CMD ["./socks5Server"]
+CMD ["./socks5Server -server -port=8080"]
