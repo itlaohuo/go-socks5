@@ -27,7 +27,7 @@ func (s *Socks5Server) String() string {
 
 func (s *Socks5Server) Run() error {
 	address := fmt.Sprintf("%s:%d", s.Address, s.Port)
-	slog.Info("Socks5Server start , : %s \n", s)
+	slog.Info("Socks5Server start ...", "Socks5Server", s)
 	listen, err := net.Listen("tcp", address)
 	if err != nil {
 		slog.Error("start server error", "err", err)
