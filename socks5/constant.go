@@ -57,4 +57,6 @@ type Config struct {
 	Method        MethodType
 	CheckAuthFunc func(userName string, passwd string) bool
 	Timeout       time.Duration
+	Username      string
+	Passwd        string
 }

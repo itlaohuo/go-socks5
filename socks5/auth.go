@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"net"
 )
 
-// NewAuthMessage 从连接中获取协商认证信息
-func NewAuthMessage(conn io.Reader) (*AuthMessage, error) {
+// NewAuthMessageFromClient 从连接中获取协商认证信息
+func NewAuthMessageFromClient(conn io.Reader) (*AuthMessage, error) {
 	var buff = make([]byte, VerLen+NMethodLen)
 	_, err := io.ReadFull(conn, buff)
 	if err != nil {
@@ -17,21 +19,23 @@ func NewAuthMessage(conn io.Reader) (*AuthMessage, error) {
 	}
 	ver := buff[0]
 	if ver != Socks5 {
-		return nil, errors.New("protocol not supported")
+		slog.Error("NewAuthMessageFromClient protocol not supported")
+		return nil, errors.New("NewAuthMessageFromClient protocol not supported")
 	}
 	nMethods := buff[1]
 	buff = make([]byte, nMethods)
 	_, err = io.ReadFull(conn, buff)
 	methods := buff[:]
 	if err != nil {
+		slog.Error("ReadFull from conn failed", "err", err)
 		return nil, err
 	}
 	authMessage := AuthMessage{Ver: Socks5, NMethods: nMethods, Methods: methods}
 	return &authMessage, nil
 }
 
-// NewAuthReplyMessage 协商认证回复
-func NewAuthReplyMessage(conn io.Writer, method MethodType) error {
+// ServerChooseOneSupportedMethodToClient 协商认证回复
+func ServerChooseOneSupportedMethodToClient(conn io.Writer, method MethodType) error {
 	buff := []byte{Socks5, method}
 	_, err := conn.Write(buff)
 	return err
@@ -79,17 +83,19 @@ func NewUserPasswdReplyMessage(conn io.Writer, status byte) error {
 
 // 协商认证
 func auth(conn net.Conn, config *Config, reader *bufio.Reader) error {
-	authMessage, err := NewAuthMessage(reader)
+	authMessage, err := NewAuthMessageFromClient(reader)
 	if err != nil {
 		return err
 	}
 	if authMessage != nil {
 		supportedMethod := bytes.IndexByte(authMessage.Methods, config.Method) >= 0
 		if !supportedMethod {
-			NewAuthReplyMessage(conn, MethodNotSupported)
+			// Server选择一个自己也支持的认证方案
+			ServerChooseOneSupportedMethodToClient(conn, MethodNotSupported)
 			return err
 		}
-		err := NewAuthReplyMessage(conn, config.Method)
+		// Server选择一个自己也支持的认证方案
+		err := ServerChooseOneSupportedMethodToClient(conn, config.Method)
 		if err != nil {
 			return err
 		}
@@ -104,9 +110,63 @@ func auth(conn net.Conn, config *Config, reader *bufio.Reader) error {
 			passed := config.CheckAuthFunc(userName, passwd)
 			if !passed {
 				NewUserPasswdReplyMessage(conn, UserPasswdAuthFail)
+			} else {
+				NewUserPasswdReplyMessage(conn, UserPasswdAuthSuccess)
 			}
-			NewUserPasswdReplyMessage(conn, UserPasswdAuthSuccess)
+
 		}
 	}
 	return err
+}
+
+// 选择认证方式并认证
+func (s5 *Socks5Server) clientAuth(conn io.ReadWriter, method MethodType) (err error) {
+	if method == MethodNoAuth {
+		slog.Debug("MethodNoAuth clinet auth success")
+		return nil
+	}
+	if method != MethodUserPasswd {
+		slog.Error("auth not supported method")
+		return errors.New("not supported method")
+	}
+	var totalBuff [8]byte
+	// 客户端发送验证数据包
+	// +-----+-----------------+----------+-----------------+----------+
+	// | VER | USERNAME_LENGTH | USERNAME | PASSWORD_LENGTH | PASSWORD |
+	// +-----+-----------------+----------+-----------------+----------+
+	// |   1 |               1 | 1-255    |               1 | 1-255    |
+	// +-----+-----------------+----------+-----------------+----------+
+
+	var buff []byte
+	// 版本
+	buff = append(buff, Socks5)
+	buff = append(buff, byte(len(s5.Config.Username)))
+	buff = append(buff, []byte(s5.Config.Username)...)
+	buff = append(buff, byte(len(s5.Config.Passwd)))
+	buff = append(buff, []byte(s5.Config.Passwd)...)
+	if _, err = conn.Write(buff); err != nil {
+		slog.Error("auth write failed")
+		return fmt.Errorf("<auth write err> %w ", err)
+	}
+
+	// 服务端响应验证包
+	// +-----+--------+
+	// | VER | STATUS |
+	// +-----+--------+
+	// |   1 |      1 |
+	// +-----+--------+
+	readBuff := totalBuff[:2]
+	if _, err = io.ReadFull(conn, readBuff); err != nil {
+		slog.Error("auth readFull failed")
+		return errors.New("<auth readFull failed>")
+	}
+
+	// 认证失败
+	if readBuff[1] != ReplySuccess {
+		slog.Error("auth failed")
+		return errors.New("<auth failed>")
+	}
+	slog.Debug("clinet auth success")
+	return nil
+
 }

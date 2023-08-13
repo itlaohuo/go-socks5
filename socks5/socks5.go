@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 )
 
@@ -12,20 +13,24 @@ type Server interface {
 }
 
 type Socks5Server struct {
-	Address string
-	Port    int16
-	Config  Config
+	Address    string
+	Port       int16
+	IsServer   bool
+	RemoteAddr string
+	RemotePort int16
+	Config     Config
 }
 
 func (s *Socks5Server) String() string {
-	return fmt.Sprintf("%s:%d;%+v ", s.Address, s.Port, s.Config)
+	return fmt.Sprintf("loacal: %s:%d; remote : %s:%d; %+v ", s.Address, s.Port, s.RemoteAddr, s.RemotePort, s.Config)
 }
 
 func (s *Socks5Server) Run() error {
 	address := fmt.Sprintf("%s:%d", s.Address, s.Port)
-	fmt.Printf("Socks5Server start , : %s \n", s)
+	slog.Info("Socks5Server start , : %s \n", s)
 	listen, err := net.Listen("tcp", address)
 	if err != nil {
+		slog.Error("start server error", "err", err)
 		log.Fatalln("start server error", err)
 		return err
 	}
@@ -33,6 +38,7 @@ func (s *Socks5Server) Run() error {
 	for {
 		clientConn, err := listen.Accept()
 		if err != nil {
+			slog.Error("start server listen error", "err", err)
 			log.Fatalln("start server listen error", err)
 			return err
 		}
@@ -44,7 +50,7 @@ func (s *Socks5Server) Run() error {
 			}()
 			err = s.handleConn(clientConn, &s.Config)
 			if err != nil {
-				log.Printf("handleConn error, remoteAddr %s,%v \n", clientConn.RemoteAddr(), err)
+				slog.Error("handleConn error", "remoteAddr", clientConn.RemoteAddr(), "err", err)
 				return
 			}
 		}()

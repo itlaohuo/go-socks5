@@ -15,7 +15,7 @@ func TestNewAuthMessage(t *testing.T) {
 	t.Run("test NewAuthMessage should success", func(t *testing.T) {
 		buff := []byte{Socks5, MethodUserPasswd, MethodNoAuth, MethodUserPasswd}
 		reader := bytes.NewReader(buff)
-		message, err := NewAuthMessage(reader)
+		message, err := NewAuthMessageFromClient(reader)
 		if err != nil {
 			log.Fatalf("want get err == nil but got err  %s", err)
 		}
@@ -29,7 +29,7 @@ func TestNewAuthMessage(t *testing.T) {
 	t.Run("test NewAuthMessage should fail", func(t *testing.T) {
 		buff := []byte{Socks5, MethodGssApi, MethodNoAuth, MethodUserPasswd}
 		reader := bytes.NewReader(buff)
-		message, err := NewAuthMessage(reader)
+		message, err := NewAuthMessageFromClient(reader)
 		if err != nil {
 			log.Fatalf("want get err == nil but got err  %s", err)
 		}
