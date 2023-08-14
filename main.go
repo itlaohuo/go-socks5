@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"socks5server-demo/socks5"
@@ -30,37 +31,46 @@ func main() {
 	remoteAddr := *remoteAddrFlag
 	remotePort := *remotePortFlag
 	address := ""
-	if !isServer {
-		// 本地客户端代理socks5
-		address = "127.0.0.1"
-	}
 	// 只支持2种认证方式，默认无需认证，当设置了用户名时需要通过用户名密码认证
 	method := socks5.MethodNoAuth
 	if username != "" {
 		method = socks5.MethodUserPasswd
 	}
+	if !isServer {
+		// 本地客户端代理socks5
+		address = "127.0.0.1"
+		client := &socks5.Client{
+			Addr:       fmt.Sprintf("%s:%d", address, port),
+			RemoteAddr: fmt.Sprintf("%s:%d", remoteAddr, remotePort),
+			Username:   username,
+			Passwd:     passwd,
+		}
+		slog.Info("start sockes5 clinet (local server) ...", "port", port, "username", username, "passwd", passwd)
+		client.Run()
+	} else {
+		server := &socks5.Socks5Server{
+			Address:    address,
+			Port:       int16(port),
+			IsServer:   isServer,
+			RemoteAddr: remoteAddr,
+			RemotePort: int16(remotePort),
 
-	server := &socks5.Socks5Server{
-		Address:    address,
-		Port:       int16(port),
-		IsServer:   isServer,
-		RemoteAddr: remoteAddr,
-		RemotePort: int16(remotePort),
-
-		Config: socks5.Config{
-			Timeout:  30 * time.Second,
-			Method:   method,
-			Username: username,
-			Passwd:   passwd,
-			CheckAuthFunc: func(userName, password string) bool {
-				return userName == username && password == passwd
+			Config: socks5.Config{
+				Timeout:  30 * time.Second,
+				Method:   method,
+				Username: username,
+				Passwd:   passwd,
+				CheckAuthFunc: func(userName, password string) bool {
+					return userName == username && password == passwd
+				},
 			},
-		},
+		}
+		// slog.Debug("start sockes5 server ...", "port", "username", "passwd", "isServer", port, username, passwd, isServer)
+		// 正确写法，参数成对依次出现
+		slog.Info("start sockes5 server ...", "port", port, "username", username, "passwd", passwd, "isServer", isServer)
+		server.Run()
 	}
-	// slog.Debug("start sockes5 server ...", "port", "username", "passwd", "isServer", port, username, passwd, isServer)
-	// 正确写法，参数成对依次出现
-	slog.Info("start sockes5 server ...", "port", port, "username", username, "passwd", passwd, "isServer", isServer)
-	server.Run()
+
 }
 
 // 设置日志属性

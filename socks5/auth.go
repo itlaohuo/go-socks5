@@ -50,8 +50,9 @@ func NewUserPasswdMessage(conn io.Reader) (*UserPasswdAuthMessage, error) {
 		return nil, err
 	}
 	ver := buff[0]
+	slog.Debug("=====NewUserPasswdMessage ver =====", "ver", buff[0])
 	if ver != UserPasswdAuthVer {
-		return nil, errors.New("ver not supported")
+		return nil, errors.New("NewUserPasswdMessage ver not supported")
 	}
 	userLen := buff[1]
 	buff = make([]byte, userLen+1)
@@ -130,7 +131,7 @@ func (s5 *Socks5Server) clientAuth(conn io.ReadWriter, method MethodType) (err e
 		return errors.New("not supported method")
 	}
 	var totalBuff [8]byte
-	// 客户端发送验证数据包
+	// 客户端发送验证数据包 （鉴定协议版本目前为 0x01 ）
 	// +-----+-----------------+----------+-----------------+----------+
 	// | VER | USERNAME_LENGTH | USERNAME | PASSWORD_LENGTH | PASSWORD |
 	// +-----+-----------------+----------+-----------------+----------+
@@ -139,7 +140,7 @@ func (s5 *Socks5Server) clientAuth(conn io.ReadWriter, method MethodType) (err e
 
 	var buff []byte
 	// 版本
-	buff = append(buff, Socks5)
+	buff = append(buff, UserPasswdAuthVer)
 	buff = append(buff, byte(len(s5.Config.Username)))
 	buff = append(buff, []byte(s5.Config.Username)...)
 	buff = append(buff, byte(len(s5.Config.Passwd)))

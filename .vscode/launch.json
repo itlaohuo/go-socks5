@@ -13,7 +13,9 @@
             "args": [
                 "-server",
                 "-port=8090",
-                "-logLevel=DEBUG"
+                "-logLevel=DEBUG",
+                "-username=admin",
+                "-passwd=123456",
             ]
         },
         {
@@ -26,7 +28,9 @@
                 "-port=8080",
                 "-remoteAddr=127.0.0.1",
                 "-remotePort=8090",
-                "-logLevel=DEBUG"
+                "-logLevel=DEBUG",
+                "-username=admin",
+                "-passwd=123456",
             ]
         },
     ]
